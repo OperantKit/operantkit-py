@@ -38,6 +38,7 @@ dependencies = [
 
 [project.optional-dependencies]
 hw-serial = ["experiment-io[hw-serial]>=0.1.1,<0.2"]
+test = ["pytest>=8", "matplotlib"]
 
 [project.urls]
 Homepage = "https://github.com/OperantKit"
@@ -49,3 +50,10 @@ source = "vcs"
 # Meta-package: the wheel ships metadata only, no importable module.
 [tool.hatch.build.targets.wheel]
 bypass-selection = true
+
+# The examples and their tests live in the repository only.
+[tool.hatch.build.targets.sdist]
+exclude = ["examples/", "tests/"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
