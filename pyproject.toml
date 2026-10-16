@@ -1,0 +1,51 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "operantkit"
+dynamic = ["version"]
+description = "Meta-package that installs the OperantKit stack: contingency-dsl parser, reinforcement schedule engine, session runner/recorder/analyzer, hardware I/O, and the operant command."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "OperantKit contributors" }]
+keywords = [
+    "behavior-analysis",
+    "operant-conditioning",
+    "reinforcement-schedule",
+    "experiment",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = [
+    "contingency-dsl-py>=0.1.1,<0.2",
+    "contingency-py>=0.1.1,<0.2",
+    "experiment-core>=0.1.1,<0.2",
+    "session-recorder>=0.1.1,<0.2",
+    "session-runner>=0.1.1,<0.2",
+    "session-analyzer>=0.1.1,<0.2",
+    "experiment-io>=0.1.1,<0.2",
+    "operantkit-cli>=0.1.0,<0.2",
+]
+
+[project.optional-dependencies]
+hw-serial = ["experiment-io[hw-serial]>=0.1.1,<0.2"]
+
+[project.urls]
+Homepage = "https://github.com/OperantKit"
+Repository = "https://github.com/OperantKit/operantkit"
+
+[tool.hatch.version]
+source = "vcs"
+
+# Meta-package: the wheel ships metadata only, no importable module.
+[tool.hatch.build.targets.wheel]
+bypass-selection = true
