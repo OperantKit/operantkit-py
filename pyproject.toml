@@ -41,7 +41,7 @@ hw-serial = ["experiment-io[hw-serial]>=0.1.1,<0.2"]
 
 [project.urls]
 Homepage = "https://github.com/OperantKit"
-Repository = "https://github.com/OperantKit/operantkit"
+Repository = "https://github.com/OperantKit/operantkit-py"
 
 [tool.hatch.version]
 source = "vcs"
