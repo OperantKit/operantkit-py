@@ -66,3 +66,54 @@ def test_fi_scallop_is_reproducible_under_seed(fi_scallop: ModuleType, tmp_path:
     a = fi_scallop.run_session(tmp_path / "a.okl")
     b = fi_scallop.run_session(tmp_path / "b.okl")
     assert a.read_bytes() == b.read_bytes()
+
+
+@pytest.fixture(scope="module")
+def matching() -> ModuleType:
+    return _load("concurrent_vi_matching")
+
+
+@pytest.fixture(scope="module")
+def matching_summary(matching: ModuleType, tmp_path_factory: pytest.TempPathFactory) -> object:
+    return matching.run_experiment(tmp_path_factory.mktemp("matching"))
+
+
+def test_matching_command_writes_okl_and_png(tmp_path: Path) -> None:
+    script = EXAMPLES / "concurrent_vi_matching" / "run.py"
+    result = subprocess.run(
+        [sys.executable, str(script), "--out-dir", str(tmp_path)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert (tmp_path / "concurrent_vi_matching.png").read_bytes()[:8] == PNG_MAGIC
+    okls = sorted(tmp_path.glob("concurrent_vi_matching_*.okl"))
+    assert len(okls) == 4
+    assert all(p.stat().st_size > 0 for p in okls)
+
+
+def test_matching_fits_the_generalized_matching_law(matching_summary: object) -> None:
+    # Fitted over the three conditions that reinforce both keys.
+    assert 0.8 <= matching_summary.sensitivity <= 1.2
+    assert matching_summary.r_squared > 0.9
+
+
+def test_matching_relative_responses_track_relative_reinforcers(
+    matching_summary: object,
+) -> None:
+    assert len(matching_summary.conditions) == 4
+    for row in matching_summary.conditions:
+        assert sum(row.reinforcers) == 60
+        assert abs(row.relative_responses - row.relative_reinforcers) <= 0.10, row
+
+
+def test_matching_is_reproducible_under_seed(
+    matching: ModuleType, matching_summary: object, tmp_path: Path
+) -> None:
+    first = matching.run_experiment(tmp_path / "a")
+    second = matching.run_experiment(tmp_path / "b")
+    assert first == second == matching_summary
+    for name, _, _ in matching.CONDITIONS:
+        okl = f"concurrent_vi_matching_{name}.okl"
+        assert (tmp_path / "a" / okl).read_bytes() == (tmp_path / "b" / okl).read_bytes()
