@@ -42,24 +42,7 @@ def test_fi_scallop_command_writes_okl_and_png(tmp_path: Path) -> None:
     assert (tmp_path / "fi_scallop.png").read_bytes()[:8] == PNG_MAGIC
 
 
-def test_fi_scallop_responding_accelerates_within_intervals(
-    fi_scallop: ModuleType, tmp_path: Path
-) -> None:
-    okl = fi_scallop.run_session(tmp_path / "s.okl")
-    summary = fi_scallop.summarize(okl)
-    assert summary.reinforcers == 30
-    assert summary.accelerating_intervals >= 25
-    assert summary.median_quarter_life > 0.5
-
-
-def test_fi_poisson_control_shows_no_scallop(fi_scallop: ModuleType, tmp_path: Path) -> None:
-    okl = fi_scallop.run_session(tmp_path / "p.okl", subject="poisson")
-    summary = fi_scallop.summarize(okl)
-    assert summary.reinforcers == 30
-    # Constant-rate responding puts a quarter of the responses a quarter of
-    # the way through the interval.
-    assert 0.2 <= summary.median_quarter_life <= 0.3
-    assert summary.accelerating_intervals < 25
+# The FI pattern itself is judged against published values in tests/laws/.
 
 
 def test_fi_scallop_is_reproducible_under_seed(fi_scallop: ModuleType, tmp_path: Path) -> None:
