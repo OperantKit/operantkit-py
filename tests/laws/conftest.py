@@ -12,11 +12,15 @@ of them. Schedule values (Fleshler-Hoffman sequences) use ``FH_SEED``.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from statistics import median
 
 from contingency.bridge import from_dsl
+from contingency.entities import Outcome, Reinforcer
+from contingency.entities import ResponseEvent as ScheduleResponse
+from contingency.interfaces import Schedule
 from contingency_dsl import parse
 from contingency_dsl.annotations.temporal.extension import TemporalExtension
 from contingency_dsl.extensions import ExtensionRegistry
@@ -77,8 +81,16 @@ def run_session(
     reinforcers: int,
     reinforcer_duration_s: float,
     operanda: int = 1,
+    schedule: Schedule | None = None,
 ) -> Record:
-    """Run one session of ``dsl`` until ``reinforcers`` reinforcers and record it."""
+    """Run one session of ``dsl`` until ``reinforcers`` reinforcers and record it.
+
+    ``schedule`` replaces the schedule built from ``dsl`` (used for the
+    yoked VI, whose intervals come from another session); ``dsl`` is then
+    only recorded in the session metadata.
+    """
+    if schedule is None:
+        schedule = from_dsl(parse(dsl, extensions=_ANNOTATIONS))
     clock = ManualClock()
     if operanda == 1:
         ops = [VirtualOperandum(0, subject, clock)]
@@ -88,7 +100,7 @@ def run_session(
     runner = SessionRunner(
         SessionConfig(
             name="law",
-            schedule=from_dsl(parse(dsl, extensions=_ANNOTATIONS)),
+            schedule=schedule,
             exit_condition=ReinforcementCountExit(count=reinforcers),
             metadata={"dsl": dsl},
         ),
@@ -120,6 +132,48 @@ def intervals(record: Record) -> list[tuple[float, float, list[float]]]:
     for onset, end in zip(onsets, record.reinforcer_starts, strict=True):
         out.append((onset, end, [t for t in record.responses if onset <= t <= end]))
     return out
+
+
+class YokedVI:
+    """Variable-interval schedule whose intervals are given in advance.
+
+    The ``k``-th interval starts at the ``(k - 1)``-th reinforced response
+    (at the session start for the first) and sets up a reinforcer for the
+    first response at or after its end. Pass the inter-reinforcement times
+    of a master session, each but the first lengthened by the reinforcer
+    duration, to time each interval from the end of the previous
+    reinforcer (Catania et al., 1977). After the last interval no further
+    reinforcer is set up (the intervals are not repeated).
+    """
+
+    def __init__(self, intervals_s: Sequence[float]) -> None:
+        if not intervals_s or any(v <= 0 for v in intervals_s):
+            raise ValueError(f"intervals must be non-empty and > 0, got {intervals_s!r}")
+        self._intervals = list(intervals_s)
+        self.reset()
+
+    def step(self, now: float, event: ScheduleResponse | None = None) -> Outcome:
+        if event is None or now + 1e-9 < self._arm_time:
+            return Outcome()
+        if self._next < len(self._intervals):
+            self._arm_time = now + self._intervals[self._next]
+        else:
+            self._arm_time = math.inf
+        self._next += 1
+        return Outcome(reinforced=True, reinforcer=Reinforcer(time=now))
+
+    def reset(self) -> None:
+        self._arm_time = self._intervals[0]
+        self._next = 1
+
+
+def response_rate(record: Record) -> float:
+    """Responses per second over the inter-reinforcement intervals.
+
+    Reinforcer time is excluded, as in Catania et al. (1977).
+    """
+    spans = intervals(record)
+    return sum(len(r) for _, _, r in spans) / sum(end - onset for onset, end, _ in spans)
 
 
 def segment_counts(onset: float, end: float, responses: Sequence[float], n: int) -> list[int]:
