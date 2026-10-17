@@ -117,3 +117,57 @@ def test_matching_is_reproducible_under_seed(
     for name, _, _ in matching.CONDITIONS:
         okl = f"concurrent_vi_matching_{name}.okl"
         assert (tmp_path / "a" / okl).read_bytes() == (tmp_path / "b" / okl).read_bytes()
+
+
+@pytest.fixture(scope="module")
+def drl() -> ModuleType:
+    return _load("drl_irt")
+
+
+def test_drl_command_writes_okl_and_pngs(tmp_path: Path) -> None:
+    script = EXAMPLES / "drl_irt" / "run.py"
+    result = subprocess.run(
+        [sys.executable, str(script), "--out-dir", str(tmp_path)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert (tmp_path / "drl_irt.okl").stat().st_size > 0
+    assert (tmp_path / "drl_irt_histogram.png").read_bytes()[:8] == PNG_MAGIC
+    assert (tmp_path / "drl_irt_cumulative.png").read_bytes()[:8] == PNG_MAGIC
+
+
+def test_drl_spaces_responses_past_the_interval(drl: ModuleType, tmp_path: Path) -> None:
+    summary = drl.summarize(drl.run_session(tmp_path / "s.okl"))
+    # Share of IRTs >= 10 s among responses in the last 600 s of the session.
+    assert summary.late_long_fraction >= 0.5
+    assert summary.late_long_fraction > summary.early_long_fraction
+    # The overall rate falls, as in Ferster and Skinner's drl.
+    assert summary.late_rate < summary.early_rate
+
+
+def test_drl_poisson_control_rarely_waits(drl: ModuleType, tmp_path: Path) -> None:
+    summary = drl.summarize(drl.run_session(tmp_path / "p.okl", subject="poisson"))
+    assert summary.long_fraction < 0.05
+
+
+def test_drl_is_reproducible_under_seed(drl: ModuleType, tmp_path: Path) -> None:
+    a = drl.run_session(tmp_path / "a.okl")
+    b = drl.run_session(tmp_path / "b.okl")
+    assert a.read_bytes() == b.read_bytes()
+
+
+@pytest.mark.parametrize("name", ["fi_scallop", "drl_irt"])
+def test_example_command_can_rerun_over_its_own_output(name: str, tmp_path: Path) -> None:
+    # The repository ships each example's output, so the first run after a
+    # clone writes over an existing OKL log.
+    script = EXAMPLES / name / "run.py"
+    for _ in range(2):
+        result = subprocess.run(
+            [sys.executable, str(script), "--out-dir", str(tmp_path)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode == 0, result.stderr

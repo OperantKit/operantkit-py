@@ -77,6 +77,9 @@ def run_session(okl_path: Path, *, subject: str = "scallop", seed: int = SEED) -
     reinforcers = [RecordingReinforcer(operandum_index=0)]
     metadata = {"dsl": DSL, "subject": subject, "seed": seed}
 
+    # OklSink refuses to append a header to a non-empty file; a re-run
+    # replaces the previous log.
+    okl_path.unlink(missing_ok=True)
     sink = OklSink(okl_path)
     sink.write_header(
         session_name="fi_scallop",
