@@ -38,6 +38,7 @@ from experiment_io.hw.backends.virtual import (
     RecordingReinforcer,
     VirtualOperandum,
 )
+from session_analyzer.analytics.schneider_segment import schneider_two_state
 from session_runner import SessionConfig, SessionRunner
 
 SEEDS = tuple(range(10))
@@ -240,7 +241,7 @@ class TwoState:
 def two_state_fit(
     onset: float, end: float, responses: Sequence[float], *, grid: int = 200
 ) -> TwoState | None:
-    """Schneider's (1969) least-squares breakpoint.
+    """Schneider's (1969) least-squares breakpoint, from session-analyzer.
 
     The cumulative record of the interval is fitted by a line through the
     origin up to the breakpoint and a second line joined to it at the
@@ -248,32 +249,12 @@ def two_state_fit(
     the one with the smallest sum of squared deviations is kept. Returns
     ``None`` for fewer than four responses.
     """
-    times = [t - onset for t in responses]
-    if len(times) < 4:
+    fit = schneider_two_state(
+        responses, interval_start=onset, interval_end=end, grid=grid
+    )
+    if fit is None:
         return None
-    length = end - onset
-    counts = range(1, len(times) + 1)
-    best: tuple[float, TwoState] | None = None
-    for step in range(1, grid):
-        b = length * step / grid
-        x1 = [min(t, b) for t in times]
-        x2 = [max(0.0, t - b) for t in times]
-        s11 = sum(v * v for v in x1)
-        s22 = sum(v * v for v in x2)
-        s12 = sum(u * v for u, v in zip(x1, x2, strict=True))
-        s1y = sum(u * y for u, y in zip(x1, counts, strict=True))
-        s2y = sum(v * y for v, y in zip(x2, counts, strict=True))
-        det = s11 * s22 - s12 * s12
-        if det <= 0:
-            continue
-        low = (s1y * s22 - s2y * s12) / det
-        high = (s2y * s11 - s1y * s12) / det
-        sse = sum(
-            (y - low * u - high * v) ** 2 for u, v, y in zip(x1, x2, counts, strict=True)
-        )
-        if best is None or sse < best[0]:
-            best = (sse, TwoState(b / length, low, high))
-    return None if best is None else best[1]
+    return TwoState(fit.pause_duration / (end - onset), fit.low_rate, fit.high_rate)
 
 
 def spread(values: Sequence[float]) -> str:
