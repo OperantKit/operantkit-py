@@ -2,9 +2,15 @@
 
 A subject whose response rate grows with time since reinforcement
 (``ScallopSubject``) runs ``FI 60-s`` for 30 reinforcers under each of ten
-seeds. Four measures of the within-interval pattern are compared with
-values reported for pigeons and monkeys; the thresholds come from the
-papers, not from this subject's output:
+seeds. Its rate rises as the fourth power of the time since reinforcement
+up to 2 responses/s at 60 s, and its IRTs at a constant rate have a
+coefficient of variation of 0.3 (more regular than a Poisson process). Both
+are needed: with the rate rising as the square of time the index of
+curvature stays near the cubic record's 0.469, and with Poisson IRTs the
+count noise between 6-s segments keeps the share of rising steps near 0.6.
+Four measures of the within-interval pattern are compared with values
+reported for pigeons and monkeys; the thresholds come from the papers, not
+from this subject's output:
 
 - F1, breakpoint: Schneider (1969) — the transition from the low to the
   high rate falls "at about two-thirds of the way through the interval"
@@ -71,6 +77,9 @@ DSL = "FI 60-s"
 INTERVAL_S = 60.0
 REINFORCERS = 30
 REINFORCER_DURATION_S = 0.5
+SCALLOP_MAX_RATE_HZ = 2.0
+SCALLOP_EXPONENT = 4.0
+SCALLOP_CV = 0.3
 
 BREAKPOINT = 0.67  # Schneider (1969)
 BREAKPOINT_MARGIN = 0.15  # this suite's margin
@@ -121,7 +130,18 @@ def measure(subject: object) -> FiMeasures:
 
 @pytest.fixture(scope="module")
 def scallop() -> list[FiMeasures]:
-    return [measure(ScallopSubject(max_rate_hz=2.0, ramp_s=INTERVAL_S, seed=s)) for s in SEEDS]
+    return [
+        measure(
+            ScallopSubject(
+                max_rate_hz=SCALLOP_MAX_RATE_HZ,
+                ramp_s=INTERVAL_S,
+                exponent=SCALLOP_EXPONENT,
+                cv=SCALLOP_CV,
+                seed=s,
+            )
+        )
+        for s in SEEDS
+    ]
 
 
 @pytest.fixture(scope="module")
@@ -154,11 +174,6 @@ def test_fi_breakpoint_two_thirds_through_the_interval(scallop: list[FiMeasures]
     assert all(abs(x - BREAKPOINT) <= BREAKPOINT_MARGIN for x in v), spread(v)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="ScallopSubject's quadratic hazard gives about 40 responses per interval; "
-    "Poisson noise between 6-s segments keeps the share of rising steps near 0.57",
-)
 def test_fi_rate_rises_from_segment_to_segment(scallop: list[FiMeasures]) -> None:
     v = values(scallop, "increase_fraction")
     assert all(x >= INCREASE_FRACTION for x in v), spread(v)
@@ -169,11 +184,6 @@ def test_fi_fifth_segment_outpaces_the_first(scallop: list[FiMeasures]) -> None:
     assert all(x >= FIFTH_TO_FIRST for x in v), spread(v)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="a hazard rising as t^2 gives a cubic cumulative record, whose index of "
-    "curvature with four divisions is 0.469, below the scalloped records' 0.56",
-)
 def test_fi_index_of_curvature_matches_scalloped_records(scallop: list[FiMeasures]) -> None:
     v = values(scallop, "curvature")
     assert all(x >= CURVATURE for x in v), spread(v)
