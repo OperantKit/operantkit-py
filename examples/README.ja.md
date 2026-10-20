@@ -20,8 +20,10 @@ python examples/<name>/run.py
 | [fi_scallop](fi_scallop/README.ja.md) | 定間隔スキャロップ: 強化のたびに休止し、その後反応が加速する | Ferster & Skinner (1957) | `FI 60-s` | `python examples/fi_scallop/run.py` | 累積記録 |
 | [concurrent_vi_matching](concurrent_vi_matching/README.ja.md) | 並立 VI VI のマッチング: 相対反応頻度が相対強化頻度に一致する | Herrnstein (1961) | `Conc(VI 180-s, VI 180-s, COD=1.5-s)` ほか 3 対 | `python examples/concurrent_vi_matching/run.py` | 相対強化頻度に対する相対反応頻度（対角線付き） |
 | [drl_irt](drl_irt/README.ja.md) | 低反応率分化強化: IRT が延び、反応率が下がる | Ferster & Skinner (1957) | `DRL 10-s` | `python examples/drl_irt/run.py` | IRT ヒストグラム（最初と最後の 600 秒）、IRT で色分けした累積記録 |
+| [paper_procedure](paper_procedure/README.ja.md) | 公刊論文の手続きを DOI から走らせ、論文の定性的なパターンと比べる | Higa & Simm (2004) | `FI30s`（論文の Method から取り出したもの） | `python examples/paper_procedure/run.py --doi 10.1016/j.beproc.2004.08.007` | 累積記録 |
 
 ## 出典
 
 - Ferster, C. B., & Skinner, B. F. (1957). *Schedules of reinforcement*. Appleton-Century-Crofts. https://doi.org/10.1037/10627-000
 - Herrnstein, R. J. (1961). Relative and absolute strength of response as a function of frequency of reinforcement. *Journal of the Experimental Analysis of Behavior*, *4*(3), 267–272. https://doi.org/10.1901/jeab.1961.4-267
+- Higa, J. J., & Simm, L. A. (2004). Interval timing in Siamese fighting fish (*Betta splendens*). *Behavioural Processes*, *67*, 501–509. https://doi.org/10.1016/j.beproc.2004.08.007

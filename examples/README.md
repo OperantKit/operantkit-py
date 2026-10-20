@@ -20,8 +20,10 @@ Each `run.py` runs without arguments and writes its OKL log and figures next to 
 | [fi_scallop](fi_scallop/README.md) | Fixed-interval scallop: a pause after each reinforcer, then accelerating responding | Ferster & Skinner (1957) | `FI 60-s` | `python examples/fi_scallop/run.py` | Cumulative record |
 | [concurrent_vi_matching](concurrent_vi_matching/README.md) | Matching on concurrent VI VI: relative responses track relative reinforcement | Herrnstein (1961) | `Conc(VI 180-s, VI 180-s, COD=1.5-s)` and three more pairs | `python examples/concurrent_vi_matching/run.py` | Relative responses against relative reinforcement, with the diagonal |
 | [drl_irt](drl_irt/README.md) | Differential reinforcement of low rate: IRTs lengthen and the rate falls | Ferster & Skinner (1957) | `DRL 10-s` | `python examples/drl_irt/run.py` | IRT histograms (first and last 600 s); IRT-coded cumulative record |
+| [paper_procedure](paper_procedure/README.md) | A published procedure run from its DOI and judged against the paper's qualitative pattern | Higa & Simm (2004) | `FI30s` (extracted from the paper's Method) | `python examples/paper_procedure/run.py --doi 10.1016/j.beproc.2004.08.007` | Cumulative record |
 
 ## Sources
 
 - Ferster, C. B., & Skinner, B. F. (1957). *Schedules of reinforcement*. Appleton-Century-Crofts. https://doi.org/10.1037/10627-000
 - Herrnstein, R. J. (1961). Relative and absolute strength of response as a function of frequency of reinforcement. *Journal of the Experimental Analysis of Behavior*, *4*(3), 267–272. https://doi.org/10.1901/jeab.1961.4-267
+- Higa, J. J., & Simm, L. A. (2004). Interval timing in Siamese fighting fish (*Betta splendens*). *Behavioural Processes*, *67*, 501–509. https://doi.org/10.1016/j.beproc.2004.08.007

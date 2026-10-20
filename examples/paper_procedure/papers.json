@@ -1,0 +1,14 @@
+{
+  "10.1016/j.beproc.2004.08.007": {
+    "slug": "higa_simm_2004",
+    "citation": "Higa, J. J., & Simm, L. A. (2004). Interval timing in Siamese fighting fish (Betta splendens). Behavioural Processes, 67, 501-509. https://doi.org/10.1016/j.beproc.2004.08.007",
+    "dsl": "FI30s",
+    "figure": "Fig. 2 (cumulative records per subject and condition)",
+    "expected": "Few responses early in each interval; the response rate rises as the interval elapses, either gradually (a scallop) or after a break point.",
+    "judge": "rate_rises_within_interval",
+    "reinforcers": 30,
+    "reinforcer_duration_s": 0.5,
+    "notes": "The paper's reinforcer is 20 s of a reflective mirror, and each interval is timed from the end of the previous reinforcer. contingency-py times FI from reinforcer onset, so a 20-s reinforcer would leave a 10-s interval after it; the reinforcer is shortened to 0.5 s so that the interval after each reinforcer stays close to 30 s.",
+    "subject": {"kind": "scallop", "max_rate_hz": 2.0, "ramp_s": 30.0, "exponent": 2.0}
+  }
+}
