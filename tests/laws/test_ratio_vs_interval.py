@@ -19,6 +19,13 @@ Catania et al. (1977) likewise yoked a second pigeon to the first.
 - V2, range of reinforcement rates: Baum (1993) — the VI rate rose to the VR
   rate around 600 to 1,000 reinforcers per hour (300 to 600 after correcting
   for pausing). Pass: the yoked VI earns fewer than 300 reinforcers per hour.
+- V3, convergence in the midrange (a prediction): Baum (1993) — "The upturn
+  in VI response rate ... occurs for every pigeon at around 300 to 600
+  reinforcers per hour. For every pigeon the VI response rate rises to a
+  level equal to the VR response rate" (rates corrected for pausing). The
+  same pairs run on VR 2 to VR 200; the yoked VI reinforcement rate at which
+  the rate ratio falls to 1.1 and stays there must have a ten-seed median of
+  300 to 600 per hour. The copyist does not converge (recorded as xfail).
 
 Invariants of the procedure (the Poisson control must pass them too): the VR
 pays one reinforcer per 25 ± 2 responses on average, and the yoked VI earns
@@ -50,6 +57,7 @@ Tanno, T., & Silberberg, A. (2012). The copyist model of response emission.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from dataclasses import dataclass
 from statistics import median
@@ -119,10 +127,10 @@ def yoked_intervals(master: Record) -> list[float]:
     return [iris[0], *(iri + REINFORCER_DURATION_S for iri in iris[1:])]
 
 
-def run_pair(make_subject: Callable[[bool], object]) -> Pair:
+def run_pair(make_subject: Callable[[bool], object], vr_dsl: str = VR_DSL) -> Pair:
     """Run the VR master, then the yoked VI on its inter-reinforcement times."""
     vr = run_session(
-        VR_DSL,
+        vr_dsl,
         make_subject(False),
         reinforcers=REINFORCERS,
         reinforcer_duration_s=REINFORCER_DURATION_S,
@@ -210,3 +218,140 @@ def test_yoked_vi_with_the_same_stream_reproduces_the_master() -> None:
     pair = run_pair(same_stream)
     assert pair.vi.responses == pair.vr.responses
     assert pair.vi.reinforcer_starts == pair.vr.reinforcer_starts
+
+
+# --- V3, convergence in the midrange (Baum, 1993) --------------------------
+
+SWEEP_RATIOS = (2, 3, 5, 7, 10, 15, 25, 50, 100, 200)  # VR 1 left out: "unrepresentative"
+CONVERGED_RATIO = 1.1  # "equal"; the upper edge of CONTROL_RATIO
+CONVERGENCE_BAND = (300.0, 600.0)  # Baum (1993), Fig. 7, corrected for pausing
+SWEEP_RESPONSES_PER_REINFORCER_MARGIN = 0.08  # relative, v ± 8%
+
+
+def sweep_dsl(ratio: int) -> str:
+    return f'@algorithm("fleshler-hoffman", n=12, seed={FH_SEED})\nVR {ratio}'
+
+
+def run_sweep(make: Callable[[int], Callable[[bool], object]]) -> dict[int, list[Pair]]:
+    return {v: [run_pair(make(seed), sweep_dsl(v)) for seed in SEEDS] for v in SWEEP_RATIOS}
+
+
+def convergence_point(pairs: list[Pair]) -> float:
+    """Yoked VI reinforcers per hour at which the rate ratio falls to 1.1 and stays there.
+
+    Conditions are ordered by the yoked VI's obtained reinforcement rate; the
+    crossing between the last condition above 1.1 and the next is
+    interpolated on the log of that rate. ``inf`` if the ratio never stays at
+    or below 1.1; the lowest rate if it is there from the start.
+    """
+    points = sorted((p.vi_reinforcers_per_hour, p.rate_ratio) for p in pairs)
+    k = len(points)
+    while k > 0 and points[k - 1][1] <= CONVERGED_RATIO:
+        k -= 1
+    if k == len(points):
+        return math.inf
+    if k == 0:
+        return points[0][0]
+    (r0, q0), (r1, q1) = points[k - 1], points[k]
+    fraction = (q0 - CONVERGED_RATIO) / (q0 - q1)
+    return math.exp(math.log(r0) + fraction * (math.log(r1) - math.log(r0)))
+
+
+def convergence_points(sweep: dict[int, list[Pair]]) -> list[float]:
+    """One convergence point per seed, across the swept conditions."""
+    return [convergence_point([sweep[v][i] for v in SWEEP_RATIOS]) for i in range(len(SEEDS))]
+
+
+def corrected_rate(record: Record) -> float:
+    """Responses per second without the first response of each interval (Baum's pause correction).
+
+    The reciprocal of the mean IRT, counting only IRTs inside an interval.
+    """
+    spans = [r for _, _, r in intervals(record) if len(r) > 1]
+    return sum(len(r) - 1 for r in spans) / sum(r[-1] - r[0] for r in spans)
+
+
+def corrected_over_uncorrected(pair: Pair) -> float:
+    """Pause-corrected over uncorrected rate, yoked VI (≈ 1 for a subject without pausing)."""
+    return corrected_rate(pair.vi) / response_rate(pair.vi)
+
+
+@pytest.fixture(scope="module")
+def copyist_sweep() -> dict[int, list[Pair]]:
+    return run_sweep(copyist)
+
+
+@pytest.fixture(scope="module")
+def poisson_sweep() -> dict[int, list[Pair]]:
+    return run_sweep(poisson)
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason=(
+        "the copyist's VR / yoked VI rate ratio stays at 1.5-2.1 up to about "
+        "1,100 reinforcers per hour and never falls to 1.1 (Baum: 300-600)"
+    ),
+)
+def test_yoked_vi_rate_converges_in_baums_range(copyist_sweep: dict[int, list[Pair]]) -> None:
+    """Prediction: the yoked VI rate rises to the VR rate at 300 to 600 reinforcers per hour.
+
+    Not reproduced. Ten-seed median [min, max] per condition:
+
+    ====  ======================  ====================  ============
+    VR    yoked VI reinf./hour    VR / yoked VI rate    corrected /
+                                                        uncorrected
+    ====  ======================  ====================  ============
+    2     1099.7 [770.4, 1487.6]  1.478 [1.023, 1.728]  1.011
+    3     862.8 [618.6, 973.0]    1.529 [1.155, 1.794]  1.030
+    5     552.2 [393.4, 734.1]    1.779 [1.194, 2.632]  1.015
+    7     389.8 [307.9, 539.8]    1.727 [1.608, 2.769]  1.036
+    10    333.8 [173.7, 359.5]    1.674 [0.997, 2.012]  1.023
+    15    209.5 [187.4, 283.4]    1.848 [1.301, 2.307]  1.009
+    25    126.9 [83.9, 186.2]     1.821 [1.264, 2.213]  1.003
+    50    67.2 [55.2, 91.9]       2.085 [1.172, 2.500]  1.008
+    100   37.2 [24.9, 44.2]       1.733 [1.466, 2.491]  1.002
+    200   17.2 [12.6, 21.7]       1.800 [1.409, 2.781]  1.001
+    ====  ======================  ====================  ============
+
+    The convergence point is ``inf`` for all ten seeds. The pause-corrected
+    over uncorrected rate stays near 1, so the subject has no pausing to
+    correct for and the corrected range (Fig. 7) is the one to compare.
+    """
+    points = convergence_points(copyist_sweep)
+    low, high = CONVERGENCE_BAND
+    assert low <= median(points) <= high, f"convergence point {points}"
+
+
+def test_poisson_control_has_no_rate_difference_to_converge_from(
+    poisson_sweep: dict[int, list[Pair]],
+) -> None:
+    """The control has no difference from the start, so it does not "converge" in the range.
+
+    The 0.9-1.1 range is applied to the ten-seed median of each condition:
+    at VR 2 to 5 a pair has only 180 to 460 responses, and single Poisson
+    pairs fall outside it by sampling error (7 of 100 pairs).
+    """
+    low, high = CONTROL_RATIO
+    for v, pairs in poisson_sweep.items():
+        ratios = [p.rate_ratio for p in pairs]
+        assert low <= median(ratios) <= high, f"VR {v}: control rate ratio {spread(ratios)}"
+    assert median(convergence_points(poisson_sweep)) < CONVERGENCE_BAND[0]
+
+
+@pytest.mark.parametrize("sweep_fixture", ["copyist_sweep", "poisson_sweep"])
+def test_sweep_procedure_invariants(sweep_fixture: str, request: pytest.FixtureRequest) -> None:
+    sweep: dict[int, list[Pair]] = request.getfixturevalue(sweep_fixture)
+    for v, pairs in sweep.items():
+        per_reinforcer = [p.vr_responses_per_reinforcer for p in pairs]
+        mean_per_reinforcer = sum(per_reinforcer) / len(per_reinforcer)
+        assert abs(mean_per_reinforcer - v) <= SWEEP_RESPONSES_PER_REINFORCER_MARGIN * v, (
+            f"VR {v}: responses per reinforcer {spread(per_reinforcer)}"
+        )
+        assert all(len(p.vi.reinforcer_starts) == REINFORCERS for p in pairs)
+
+
+def test_sweep_reproduces_the_vr_25_pairs(
+    copyist_sweep: dict[int, list[Pair]], copyist_pairs: list[Pair]
+) -> None:
+    assert [p.rate_ratio for p in copyist_sweep[RATIO]] == [p.rate_ratio for p in copyist_pairs]
