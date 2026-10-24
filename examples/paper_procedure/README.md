@@ -7,7 +7,16 @@ Runs the procedure of a published experiment from its DOI. The script looks the 
 ## Run
 
 ```bash
-pip install operantkit
+# Until the PyPI release, install from GitHub together with its OperantKit dependencies.
+pip install git+https://github.com/OperantKit/contingency-dsl-py \
+            git+https://github.com/OperantKit/contingency-py \
+            git+https://github.com/OperantKit/experiment-core \
+            git+https://github.com/OperantKit/session-recorder \
+            git+https://github.com/OperantKit/session-runner \
+            git+https://github.com/OperantKit/session-analyzer \
+            git+https://github.com/OperantKit/experiment-io \
+            git+https://github.com/OperantKit/operantkit-cli \
+            git+https://github.com/OperantKit/operantkit-py
 python examples/paper_procedure/run.py --doi 10.1016/j.beproc.2004.08.007
 ```
 

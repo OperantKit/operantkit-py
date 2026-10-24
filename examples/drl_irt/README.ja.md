@@ -7,7 +7,16 @@ Ferster と Skinner（1957）が記述した低反応率分化強化（DRL）の
 ## 実行
 
 ```bash
-pip install operantkit
+# PyPI に公開されるまでは、OperantKit の依存と一緒に GitHub から入れる。
+pip install git+https://github.com/OperantKit/contingency-dsl-py \
+            git+https://github.com/OperantKit/contingency-py \
+            git+https://github.com/OperantKit/experiment-core \
+            git+https://github.com/OperantKit/session-recorder \
+            git+https://github.com/OperantKit/session-runner \
+            git+https://github.com/OperantKit/session-analyzer \
+            git+https://github.com/OperantKit/experiment-io \
+            git+https://github.com/OperantKit/operantkit-cli \
+            git+https://github.com/OperantKit/operantkit-py
 python examples/drl_irt/run.py
 ```
 

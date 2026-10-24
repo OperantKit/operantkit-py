@@ -10,16 +10,23 @@
 
 ## インストール
 
-Python 3.11 以上が必要です。OperantKit の各パッケージはまだ PyPI に登録されていないので、`pip install operantkit` も `pip install git+https://github.com/OperantKit/operantkit-py` も依存の解決で失敗します。GitHub から依存の解決なしでライブラリを入れ、その後で必要な外部ライブラリ 3 つを入れます:
+
+Python 3.11 以上が必要です。OperantKit の各パッケージはまだ PyPI に登録されていないので、名前で `operantkit` を入れても、この repo だけを GitHub から入れても、依存が見つからずに失敗します。メタパッケージを、それが依存するライブラリと一緒に GitHub から入れます。必要な外部ライブラリ 3 つ（NumPy・SciPy・Matplotlib）は PyPI から入ります:
 
 ```bash
-G=git+https://github.com/OperantKit
-pip install --no-deps $G/contingency-dsl-py $G/contingency-py $G/experiment-core \
-  $G/session-recorder $G/session-runner $G/session-analyzer $G/experiment-io $G/operantkit-cli
-pip install numpy scipy matplotlib
+# PyPI に公開されるまでは、OperantKit の依存と一緒に GitHub から入れる。
+pip install git+https://github.com/OperantKit/contingency-dsl-py \
+            git+https://github.com/OperantKit/contingency-py \
+            git+https://github.com/OperantKit/experiment-core \
+            git+https://github.com/OperantKit/session-recorder \
+            git+https://github.com/OperantKit/session-runner \
+            git+https://github.com/OperantKit/session-analyzer \
+            git+https://github.com/OperantKit/experiment-io \
+            git+https://github.com/OperantKit/operantkit-cli \
+            git+https://github.com/OperantKit/operantkit-py
 ```
 
-これはメタパッケージが依存する組とちょうど同じです。`pip check` はこれら開発版どうしのバージョンの食い違いを報告しますが、例の動作には影響しません。シリアルポートの機器を使う場合は `pip install pyserial` も入れます。
+これはメタパッケージが依存する組に、メタパッケージ自身を足したものです。依存は pip が解決するので、`pip check` は何も報告しません。シリアルポートの機器を使う場合は `pip install pyserial` も入れます。
 
 ## 例
 

@@ -7,7 +7,16 @@ Reproduces the matching relation reported by Herrnstein (1961): on two concurren
 ## Run
 
 ```bash
-pip install operantkit
+# Until the PyPI release, install from GitHub together with its OperantKit dependencies.
+pip install git+https://github.com/OperantKit/contingency-dsl-py \
+            git+https://github.com/OperantKit/contingency-py \
+            git+https://github.com/OperantKit/experiment-core \
+            git+https://github.com/OperantKit/session-recorder \
+            git+https://github.com/OperantKit/session-runner \
+            git+https://github.com/OperantKit/session-analyzer \
+            git+https://github.com/OperantKit/experiment-io \
+            git+https://github.com/OperantKit/operantkit-cli \
+            git+https://github.com/OperantKit/operantkit-py
 python examples/concurrent_vi_matching/run.py
 ```
 

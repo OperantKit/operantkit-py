@@ -10,16 +10,23 @@
 
 ## Installation
 
-Python 3.11 or newer. The OperantKit packages are not on PyPI yet, so `pip install operantkit` and `pip install git+https://github.com/OperantKit/operantkit-py` both fail while resolving dependencies. Install the libraries from GitHub without dependency resolution, then add the three third-party libraries they need:
+
+Python 3.11 or newer. The OperantKit packages are not on PyPI yet, so installing `operantkit` by name, or this repository alone from GitHub, cannot find its dependencies. Install the meta-package from GitHub together with the libraries it depends on; the three third-party libraries they need (NumPy, SciPy, Matplotlib) come from PyPI:
 
 ```bash
-G=git+https://github.com/OperantKit
-pip install --no-deps $G/contingency-dsl-py $G/contingency-py $G/experiment-core \
-  $G/session-recorder $G/session-runner $G/session-analyzer $G/experiment-io $G/operantkit-cli
-pip install numpy scipy matplotlib
+# Until the PyPI release, install from GitHub together with its OperantKit dependencies.
+pip install git+https://github.com/OperantKit/contingency-dsl-py \
+            git+https://github.com/OperantKit/contingency-py \
+            git+https://github.com/OperantKit/experiment-core \
+            git+https://github.com/OperantKit/session-recorder \
+            git+https://github.com/OperantKit/session-runner \
+            git+https://github.com/OperantKit/session-analyzer \
+            git+https://github.com/OperantKit/experiment-io \
+            git+https://github.com/OperantKit/operantkit-cli \
+            git+https://github.com/OperantKit/operantkit-py
 ```
 
-This is exactly the set the meta-package depends on. `pip check` reports version mismatches between these development builds; they do not affect the examples. For a serial-port device, also `pip install pyserial`.
+This is exactly the set the meta-package depends on, plus the meta-package itself. pip resolves the dependencies between them, and `pip check` reports nothing. For a serial-port device, also `pip install pyserial`.
 
 ## Example
 
