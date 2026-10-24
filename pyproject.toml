@@ -38,7 +38,7 @@ dependencies = [
 
 [project.optional-dependencies]
 hw-serial = ["experiment-io[hw-serial]>=0.1.1,<0.2"]
-test = ["pytest>=8", "matplotlib"]
+test = ["pytest>=8", "matplotlib", "contingency-py[gym]>=0.1.1,<0.2"]
 
 [project.urls]
 Homepage = "https://github.com/OperantKit"

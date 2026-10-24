@@ -59,7 +59,7 @@ python examples/concurrent_vi_matching/run.py
 | [drl_irt](examples/drl_irt/README.md) | 低反応率分化強化: 反応間時間が伸び、反応率が下がる（Ferster & Skinner, 1957） | `DRL 10-s` |
 | [paper_procedure](examples/paper_procedure/README.md) | 公刊論文の手続きを DOI から走らせ、論文の質的なパターンと照合する | 論文の方法セクションから抽出 |
 
-各例は、ログと図を自分の `run.py` の隣に書き出します。詳しくは [examples/README.md](examples/README.md) を参照してください。`tests/test_examples.py` はすべての例を実行してパターンを確かめ、`tests/laws/` は模擬した FI・並立 VI VI・比率と時隔の比較の反応を、原論文が報告した値と比べます（出典は各テストファイルにあります）。
+各例は、ログと図を自分の `run.py` の隣に書き出します。詳しくは [examples/README.md](examples/README.md) を参照してください。`tests/test_examples.py` はすべての例を実行してパターンを確かめ、`tests/laws/` は模擬した FI・並立 VI VI・比率と時隔の比較・罰つき VI・自由オペラント回避の反応を、原論文が報告した値と比べます（出典は各テストファイルにあります）。罰と回避の法則は contingency-py の Gymnasium 環境で Q 学習のエージェントを走らせ、回避の法則（反応-shock 間隔が長いほど反応率が下がる）は期待どおりの不合格（xfail）として記録しています。
 
 ## 入るもの
 
