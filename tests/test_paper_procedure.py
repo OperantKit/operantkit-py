@@ -56,6 +56,33 @@ def test_poisson_control_does_not_match(paper: ModuleType, tmp_path: Path) -> No
     assert not report.judgement.matched, report.judgement
 
 
+OTHER_PAPERS = (
+    "10.1901/jeab.2005.71-04",
+    "10.1007/bf03394799",
+    "10.1901/jeab.1968.11-s327",
+    "10.1901/jeab.1969.12-887",
+)
+
+
+@pytest.mark.parametrize("doi", OTHER_PAPERS)
+def test_other_papers_match_and_their_controls_do_not(
+    paper: ModuleType, tmp_path: Path, doi: str
+) -> None:
+    report = paper.run_paper(doi, tmp_path)
+    assert report.judgement.matched, report.judgement
+    assert Path(report.png).read_bytes()[:8] == PNG_MAGIC
+    control = paper.run_paper(doi, tmp_path, control=True)
+    assert not control.judgement.matched, control.judgement
+
+
+def test_every_catalog_entry_names_a_known_judge(paper: ModuleType) -> None:
+    catalog = paper.load_catalog()
+    assert len(catalog) == 5
+    for entry in catalog.values():
+        assert entry["judge"] in paper.JUDGES
+        paper.compile_dsl(entry["dsl"])
+
+
 def test_reproducible_under_seed(paper: ModuleType, tmp_path: Path) -> None:
     a = paper.run_paper(HIGA, tmp_path / "a")
     b = paper.run_paper(HIGA, tmp_path / "b")

@@ -29,7 +29,7 @@ python examples/<name>/run.py
 | [fi_scallop](fi_scallop/README.ja.md) | 定間隔スキャロップ: 強化のたびに休止し、その後反応が加速する | Ferster & Skinner (1957) | `FI 60-s` | `python examples/fi_scallop/run.py` | 累積記録 |
 | [concurrent_vi_matching](concurrent_vi_matching/README.ja.md) | 並立 VI VI のマッチング: 相対反応頻度が相対強化頻度に一致する | Herrnstein (1961) | `Conc(VI 180-s, VI 180-s, COD=1.5-s)` ほか 3 対 | `python examples/concurrent_vi_matching/run.py` | 相対強化頻度に対する相対反応頻度（対角線付き） |
 | [drl_irt](drl_irt/README.ja.md) | 低反応率分化強化: IRT が延び、反応率が下がる | Ferster & Skinner (1957) | `DRL 10-s` | `python examples/drl_irt/run.py` | IRT ヒストグラム（最初と最後の 600 秒）、IRT で色分けした累積記録 |
-| [paper_procedure](paper_procedure/README.ja.md) | 公刊論文の手続きを DOI から走らせ、論文の定性的なパターンと比べる | Higa & Simm (2004) | `FI30s`（論文の Method から取り出したもの） | `python examples/paper_procedure/run.py --doi 10.1016/j.beproc.2004.08.007` | 累積記録 |
+| [paper_procedure](paper_procedure/README.ja.md) | 公刊論文の手続きを DOI から走らせ、論文の定性的なパターンと比べる | Higa & Simm (2004) ほか 4 本 | `FI30s`（論文の Method から取り出したもの）。他の 4 本は `FR5`・`FR40`・`VI108s`・`Conc(VI1min, VI3min)` | `python examples/paper_procedure/run.py --doi 10.1016/j.beproc.2004.08.007` | 累積記録 |
 
 ## 出典
 
