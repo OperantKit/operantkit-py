@@ -2,7 +2,7 @@
 
 :gb: [English README](README.md)
 
-`operantkit` は、[OperantKit](https://github.com/OperantKit) の中核ライブラリと `operant` コマンドをまとめて入れるパッケージです。このリポジトリ（operantkit-py）には、古典実験を仮想被験体で再現する例も入っています。パッケージ自身のコードはありません。個々のパッケージを使う前に、よく知られた結果で OperantKit が何をするかを見たいときは、ここから始めてください。
+`operantkit` は、[OperantKit](https://github.com/OperantKit) の中核ライブラリと `operant` コマンドをまとめて入れるパッケージです。このリポジトリ (operantkit-py) には、古典実験を仮想被験体で再現する例も入っています。パッケージ自身のコードはありません。個々のパッケージを使う前に、よく知られた結果で OperantKit が何をするかを見たいときは、ここから始めてください。
 
 - **古典的な結果を最初から最後まで再現します。** FI スキャロップ、DRL 下の反応、並立 VI VI のマッチングを、スケジュールの式からイベントログと図まで通しで走らせます。
 - **すべて公開のパイプラインです。** 例ごとに固有なのは仮想被験体だけです。
@@ -11,7 +11,7 @@
 ## インストール
 
 
-Python 3.11 以上が必要です。OperantKit の各パッケージはまだ PyPI に登録されていないので、名前で `operantkit` を入れても、この repo だけを GitHub から入れても、依存が見つからずに失敗します。メタパッケージを、それが依存するライブラリと一緒に GitHub から入れます。必要な外部ライブラリ 3 つ（NumPy・SciPy・Matplotlib）は PyPI から入ります:
+Python 3.11 以上が必要です。OperantKit の各パッケージはまだ PyPI に登録されていないので、名前で `operantkit` を入れても、この repo だけを GitHub から入れても、依存が見つからずに失敗します。メタパッケージを、それが依存するライブラリと一緒に GitHub から入れます。必要な外部ライブラリ 3 つ (NumPy・SciPy・Matplotlib) は PyPI から入ります:
 
 ```bash
 # PyPI に公開されるまでは、OperantKit の依存と一緒に GitHub から入れる。
@@ -38,7 +38,7 @@ cd operantkit-py
 python examples/concurrent_vi_matching/run.py
 ```
 
-変動時隔（VI）スケジュールの組 4 つを、それぞれ 1.5 秒の切替遅延付きで（例: `Conc(VI 135-s, VI 270-s, COD=1.5-s)`）、強化の多いキーへ反応を移していく仮想被験体に対して走らせます。条件ごとに OKL（OperantKit Log）形式のイベントログを 1 つと、`concurrent_vi_matching.png`（強化の相対頻度に対する反応の相対頻度と対角線の図）を書き出し、条件ごとの件数と一般化マッチング法則の当てはめを表示します。出力の末尾:
+変動時隔 (VI) スケジュールの組 4 つを、それぞれ 1.5 秒の切り替え遅延付きで (例: `Conc(VI 135-s, VI 270-s, COD=1.5-s)`)、強化の多いキーへ反応を移していく仮想被験体に対して走らせます。条件ごとに OKL (OperantKit Log) 形式のイベントログを 1 つと、`concurrent_vi_matching.png` (強化の相対頻度に対する反応の相対頻度と対角線の図) を書き出し、条件ごとの件数と一般化マッチング法則の当てはめを表示します。出力の末尾:
 
 ```
   "sensitivity": 0.941,
@@ -48,18 +48,18 @@ python examples/concurrent_vi_matching/run.py
 }
 ```
 
-実行には約 20 秒かかりました。被験体はこの例のために書いたモデルなので、この当てはめが示すのは、スケジュール・切替遅延・ログ・分析が一緒に正しく動くことであって、動物についての証拠ではありません。
+実行には約 20 秒かかりました。被験体はこの例のために書いたモデルなので、この当てはめが示すのは、スケジュール・切り替え遅延・ログ・分析が一緒に正しく動くことであって、動物についての証拠ではありません。
 
 ## 例の一覧
 
 | 例 | 実験 | スケジュール |
 |---|---|---|
-| [fi_scallop](examples/fi_scallop/README.md) | 固定時隔スキャロップ: 強化子の後に休止し、その後反応が加速する（Ferster & Skinner, 1957） | `FI 60-s` |
-| [concurrent_vi_matching](examples/concurrent_vi_matching/README.md) | 反応の相対頻度が強化の相対頻度に従う（Herrnstein, 1961） | `Conc(VI 180-s, VI 180-s, COD=1.5-s)` ほか 3 組 |
-| [drl_irt](examples/drl_irt/README.md) | 低反応率分化強化: 反応間時間が伸び、反応率が下がる（Ferster & Skinner, 1957） | `DRL 10-s` |
+| [fi_scallop](examples/fi_scallop/README.md) | 固定時隔スキャロップ: 強化子の後に休止し、その後反応が加速する (Ferster & Skinner, 1957) | `FI 60-s` |
+| [concurrent_vi_matching](examples/concurrent_vi_matching/README.md) | 反応の相対頻度が強化の相対頻度に従う (Herrnstein, 1961) | `Conc(VI 180-s, VI 180-s, COD=1.5-s)` ほか 3 組 |
+| [drl_irt](examples/drl_irt/README.md) | 低反応率分化強化: 反応間時間が伸び、反応率が下がる (Ferster & Skinner, 1957) | `DRL 10-s` |
 | [paper_procedure](examples/paper_procedure/README.md) | 公刊論文の手続きを DOI から走らせ、論文の質的なパターンと照合する | 論文の方法セクションから抽出 |
 
-各例は、ログと図を自分の `run.py` の隣に書き出します。詳しくは [examples/README.md](examples/README.md) を参照してください。`tests/test_examples.py` はすべての例を実行してパターンを確かめ、`tests/laws/` は模擬した FI・並立 VI VI・比率と時隔の比較・罰つき VI・自由オペラント回避の反応を、原論文が報告した値と比べます（出典は各テストファイルにあります）。罰と回避の法則は contingency-py の Gymnasium 環境で Q 学習のエージェントを走らせ、回避の法則（反応-shock 間隔が長いほど反応率が下がる）は期待どおりの不合格（xfail）として記録しています。
+各例は、ログと図を自分の `run.py` の隣に書き出します。詳しくは [examples/README.md](examples/README.md) を参照してください。`tests/test_examples.py` はすべての例を実行してパターンを確かめ、`tests/laws/` は模擬した FI・並立 VI VI・比率と時隔の比較・罰つき VI・自由オペラント回避の反応を、原論文が報告した値と比べます (出典は各テストファイルにあります)。罰と回避の法則は contingency-py の Gymnasium 環境で Q 学習のエージェントを走らせ、回避の法則 (反応-shock 間隔が長いほど反応率が下がる) は期待どおりの不合格 (xfail) として記録しています。
 
 ## 入るもの
 
@@ -71,10 +71,10 @@ python examples/concurrent_vi_matching/run.py
 | [session-runner](https://github.com/OperantKit/session-runner) | `session_runner` | セッションを進め、イベントを受け渡す |
 | [session-recorder](https://github.com/OperantKit/session-recorder) | `session_recorder` | OKL イベントログの書き出しと読み込み |
 | [session-analyzer](https://github.com/OperantKit/session-analyzer) | `session_analyzer` | 累積記録・統計・モデルの当てはめ |
-| [experiment-io](https://github.com/OperantKit/experiment-io) | `experiment_io` | 機器の入出力: 仮想・シリアルポート・HIL（hardware-in-the-loop）のバックエンド |
+| [experiment-io](https://github.com/OperantKit/experiment-io) | `experiment_io` | 機器の入出力: 仮想・シリアルポート・HIL (hardware-in-the-loop) のバックエンド |
 | [operantkit-cli](https://github.com/OperantKit/operantkit-cli) | `operantkit_cli` | `operant run` コマンド |
 
-含まれないもの: 方法セクションの道具（[contingency-dsl2procedure](https://github.com/OperantKit/contingency-dsl2procedure)、[contingency-procedure2dsl](https://github.com/OperantKit/contingency-procedure2dsl)）、アシスタントとの連携（[operantkit-mcp](https://github.com/OperantKit/operantkit-mcp)）、[schedule-writer](https://github.com/OperantKit/schedule-writer) や [session-visualizer](https://github.com/OperantKit/session-visualizer) などの作成・表示の道具。これらは別に入れてください。
+含まれないもの: 方法セクションの道具 ([contingency-dsl2procedure](https://github.com/OperantKit/contingency-dsl2procedure)、[contingency-procedure2dsl](https://github.com/OperantKit/contingency-procedure2dsl))、アシスタントとの連携 ([operantkit-mcp](https://github.com/OperantKit/operantkit-mcp))、[schedule-writer](https://github.com/OperantKit/schedule-writer) や [session-visualizer](https://github.com/OperantKit/session-visualizer) などの作成・表示の道具。これらは別に入れてください。
 
 ## 制限
 
