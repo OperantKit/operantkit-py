@@ -35,6 +35,13 @@ A constant-rate Poisson responder is the control: it must fail F1–F4
 at least 60 s apart). If the control broke the invariant, the fault would
 lie in the schedule engine rather than in the subject.
 
+Killeen's (1994) MPR (``MprSubject``, interval coupling, published pigeon FI
+values) runs the same procedure. It predicts a pause of about half the
+interval followed by a constant rate, so the checks that need a rising rate
+are recorded as strict expected failures (``expectations.py``). The pause
+fraction 0.5 and the reinforcement rate assumed before the first reinforcer
+(one per minute) are this suite's choices, not fitted values.
+
 References
 ----------
 Dews, P. B. (1978). Studies on responding under fixed-interval schedules of
@@ -55,7 +62,9 @@ Schneider, B. A. (1969). A two-state analysis of fixed-interval responding
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
+from functools import cache
 from statistics import median
 
 import pytest
@@ -70,7 +79,8 @@ from conftest import (
     spread,
     two_state_fit,
 )
-from experiment_io.hw.backends.virtual import ScallopSubject, VirtualSubject
+from expectations import FI_SCALLOP, law_cases
+from experiment_io.hw.backends.virtual import MprSubject, ScallopSubject, VirtualSubject
 from session_analyzer.analytics.prp import compute_quarter_life
 
 DSL = "FI 60-s"
@@ -90,6 +100,8 @@ CURVATURE_MIN_RESPONSES = 8
 FLAT_CURVATURE = 0.1  # around Fry et al.'s flattened −.054 / +.010
 LATE_PEAK_SEGMENTS = 3  # peak at >= 0.8 of the interval, Lowe & Harzem (1977)
 LATE_PEAK_INTERVALS = 24  # of 30, this suite's margin
+MPR_PAUSE_FRACTION = 0.5  # Killeen (1994): "about half of the interval"
+MPR_INITIAL_R = 1.0 / 60.0  # reinforcers/s before the first reinforcer (this suite's choice)
 
 
 @dataclass(frozen=True)
@@ -128,83 +140,92 @@ def measure(subject: object) -> FiMeasures:
     )
 
 
-@pytest.fixture(scope="module")
-def scallop() -> list[FiMeasures]:
-    return [
-        measure(
-            ScallopSubject(
-                max_rate_hz=SCALLOP_MAX_RATE_HZ,
-                ramp_s=INTERVAL_S,
-                exponent=SCALLOP_EXPONENT,
-                cv=SCALLOP_CV,
-                seed=s,
-            )
-        )
-        for s in SEEDS
-    ]
+SUBJECTS: dict[str, Callable[[int], object]] = {
+    "ScallopSubject": lambda seed: ScallopSubject(
+        max_rate_hz=SCALLOP_MAX_RATE_HZ,
+        ramp_s=INTERVAL_S,
+        exponent=SCALLOP_EXPONENT,
+        cv=SCALLOP_CV,
+        seed=seed,
+    ),
+    "MprSubject": lambda seed: MprSubject(
+        coupling="interval",
+        initial_r=MPR_INITIAL_R,
+        pause_fraction=MPR_PAUSE_FRACTION,
+        seed=seed,
+    ),
+    "VirtualSubject": lambda seed: VirtualSubject(rate_hz=1.0, seed=seed),
+}
 
 
-@pytest.fixture(scope="module")
-def poisson() -> list[FiMeasures]:
-    return [measure(VirtualSubject(rate_hz=1.0, seed=s)) for s in SEEDS]
+@cache
+def rows(subject: str) -> list[FiMeasures]:
+    """Measures of ``subject`` under each seed (computed once per process)."""
+    return [measure(SUBJECTS[subject](s)) for s in SEEDS]
 
 
 def values(rows: list[FiMeasures], name: str) -> list[float]:
     return [getattr(r, name) for r in rows]
 
 
-# Schedule invariant: holds for both subjects.
+def _check(name: str, ok: Callable[[float], bool]) -> Callable[[str], tuple[bool, str]]:
+    def judge(subject: str) -> tuple[bool, str]:
+        v = values(rows(subject), name)
+        return all(ok(x) for x in v), spread(v)
+
+    return judge
 
 
-@pytest.mark.parametrize("subject", ["scallop", "poisson"])
-def test_fi_invariant_reinforcers_are_at_least_an_interval_apart(
-    subject: str, request: pytest.FixtureRequest
-) -> None:
-    rows = request.getfixturevalue(subject)
-    assert all(r.reinforcers == REINFORCERS for r in rows)
-    gaps = values(rows, "shortest_gap")
+CHECKS: dict[str, Callable[[str], tuple[bool, str]]] = {
+    "F1": _check("breakpoint", lambda x: abs(x - BREAKPOINT) <= BREAKPOINT_MARGIN),
+    "F2": _check("increase_fraction", lambda x: x >= INCREASE_FRACTION),
+    "F2aux": _check("fifth_to_first", lambda x: x >= FIFTH_TO_FIRST),
+    "F3": _check("curvature", lambda x: x >= CURVATURE),
+    "F4": _check("late_peaks", lambda x: x >= LATE_PEAK_INTERVALS),
+}
+CHECK_LABELS = {
+    "F1": "breakpoint 0.67 ± 0.15 (Schneider, 1969)",
+    "F2": "share of rising segment steps ≥ 0.74 (Dews, 1978)",
+    "F2aux": "5th / 1st segment rate ≥ 2 (Dews, 1978)",
+    "F3": "index of curvature ≥ 0.56 (Fry et al., 1960)",
+    "F4": "peak in the last 3 of 10 segments in ≥ 24 of 30 intervals (Lowe & Harzem, 1977)",
+}
+REPORTED = {"quarter_life": "quarter-life (not judged)", "low_to_high": "low / high rate"}
+
+
+# Schedule invariant: holds for every subject that runs.
+
+
+@pytest.mark.parametrize("subject", list(SUBJECTS))
+def test_fi_invariant_reinforcers_are_at_least_an_interval_apart(subject: str) -> None:
+    measured = rows(subject)
+    assert all(r.reinforcers == REINFORCERS for r in measured)
+    gaps = values(measured, "shortest_gap")
     assert min(gaps) >= INTERVAL_S, spread(gaps)
 
 
-# The law: ScallopSubject.
+# The law: every subject predicted to obey it (``expectations.py``).
 
 
-def test_fi_breakpoint_two_thirds_through_the_interval(scallop: list[FiMeasures]) -> None:
-    v = values(scallop, "breakpoint")
-    assert all(abs(x - BREAKPOINT) <= BREAKPOINT_MARGIN for x in v), spread(v)
+@pytest.mark.parametrize(("subject", "check"), law_cases(FI_SCALLOP, CHECKS))
+def test_fi_law(subject: str, check: str) -> None:
+    ok, detail = CHECKS[check](subject)
+    assert ok, detail
 
 
-def test_fi_rate_rises_from_segment_to_segment(scallop: list[FiMeasures]) -> None:
-    v = values(scallop, "increase_fraction")
-    assert all(x >= INCREASE_FRACTION for x in v), spread(v)
-
-
-def test_fi_fifth_segment_outpaces_the_first(scallop: list[FiMeasures]) -> None:
-    v = values(scallop, "fifth_to_first")
-    assert all(x >= FIFTH_TO_FIRST for x in v), spread(v)
-
-
-def test_fi_index_of_curvature_matches_scalloped_records(scallop: list[FiMeasures]) -> None:
-    v = values(scallop, "curvature")
-    assert all(x >= CURVATURE for x in v), spread(v)
-
-
-def test_fi_rate_peaks_late_in_the_interval(scallop: list[FiMeasures]) -> None:
-    v = values(scallop, "late_peaks")
-    assert all(x >= LATE_PEAK_INTERVALS for x in v), spread(v)
-
-
-def test_fi_quarter_life_is_reported(
-    scallop: list[FiMeasures], poisson: list[FiMeasures]
-) -> None:
+def test_fi_quarter_life_is_reported() -> None:
     # Not judged: the source (Herrnstein & Morse, 1957) was not read.
-    print(f"quarter-life scallop {spread(values(scallop, 'quarter_life'))}")
-    print(f"quarter-life poisson {spread(values(poisson, 'quarter_life'))}")
-    assert all(0 < x < 1 for x in values(scallop, "quarter_life"))
+    for subject in SUBJECTS:
+        print(f"quarter-life {subject} {spread(values(rows(subject), 'quarter_life'))}")
+    assert all(0 < x < 1 for x in values(rows("ScallopSubject"), "quarter_life"))
 
 
 # The control: a constant-rate responder fails the law.
 
+
+@pytest.fixture(scope="module")
+def poisson() -> list[FiMeasures]:
+    return rows("VirtualSubject")
 
 def test_fi_poisson_control_has_no_low_rate_state(poisson: list[FiMeasures]) -> None:
     # Constant responding does not split into a low and a high rate.

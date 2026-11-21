@@ -24,6 +24,12 @@ Two independent constant-rate Poisson responders are the control: they
 must fail M1 (a < 0.5) and M2 and pass the schedule invariant: no
 reinforcer within the changeover delay after a changeover.
 
+Resurgence as Choice (``RaCSubject``, published parameter values; Shahan &
+Craig, 2017) runs the same three conditions as one carried subject. Its
+session length (600 s) and first-session rate (30 responses/min) are this
+suite's choices. It predicts a sensitivity of 1; M1 is recorded as a strict
+expected failure with the reason in ``expectations.py``.
+
 References
 ----------
 Baum, W. M. (1979). Matching, undermatching, and overmatching in studies of
@@ -39,10 +45,12 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import cache
 
 import pytest
 from conftest import FH_SEED, SEEDS, Record, run_session, spread
-from experiment_io.hw.backends.virtual import MatchingSubject, MultiVirtualSubject
+from expectations import MATCHING, law_cases
+from experiment_io.hw.backends.virtual import MatchingSubject, MultiVirtualSubject, RaCSubject
 from session_analyzer.analytics.matching import estimate_matching_parameters
 
 # Mean intervals (s) for keys A and B: Herrnstein's pairs that reinforce both keys.
@@ -57,6 +65,8 @@ SENSITIVITY_LOW = 0.83  # Baum (1979), median a for response measures
 SENSITIVITY_HIGH = 1.11  # Baum (1979), upper end of "good approximations"
 MAX_DEVIATION = 0.10  # Herrnstein (1961) about 0.08, plus this suite's 0.02
 CONTROL_SENSITIVITY = 0.5
+RAC_SESSION_S = 600.0  # this suite's choice
+RAC_INITIAL_RATE_PER_MIN = 30.0  # this suite's choice
 
 
 def condition_dsl(a_s: float, b_s: float, session: int) -> str:
@@ -141,22 +151,15 @@ def run_experiment(
     return MatchingMeasures(tuple(conditions), fit.sensitivity, fit.bias, fit.r_squared)
 
 
-@pytest.fixture(scope="module")
-def melioration() -> list[MatchingMeasures]:
+def _carried(make: Callable[[int], object]) -> list[MatchingMeasures]:
     # One subject carries its allocation through the three conditions.
     return [
-        run_experiment(
-            lambda _, seed=seed: MatchingSubject(rate_hz=1.0, stay=0.5, seed=seed),
-            carry=True,
-            sessions=SESSIONS,
-            pooled=POOLED,
-        )
+        run_experiment(lambda _, seed=seed: make(seed), carry=True, sessions=SESSIONS, pooled=POOLED)
         for seed in SEEDS
     ]
 
 
-@pytest.fixture(scope="module")
-def poisson() -> list[MatchingMeasures]:
+def _poisson() -> list[MatchingMeasures]:
     # Memoryless: history does not matter, so one session per condition.
     return [
         run_experiment(
@@ -171,30 +174,71 @@ def poisson() -> list[MatchingMeasures]:
     ]
 
 
-@pytest.mark.parametrize("subject", ["melioration", "poisson"])
-def test_matching_invariant_no_reinforcer_inside_the_changeover_delay(
-    subject: str, request: pytest.FixtureRequest
-) -> None:
-    rows = request.getfixturevalue(subject)
+SUBJECTS: dict[str, Callable[[], list[MatchingMeasures]]] = {
+    "MatchingSubject": lambda: _carried(
+        lambda seed: MatchingSubject(rate_hz=1.0, stay=0.5, seed=seed)
+    ),
+    "RaCSubject": lambda: _carried(
+        lambda seed: RaCSubject(
+            session_s=RAC_SESSION_S, initial_rate_per_min=RAC_INITIAL_RATE_PER_MIN, seed=seed
+        )
+    ),
+    "VirtualSubject": _poisson,
+}
+
+
+@cache
+def results(subject: str) -> list[MatchingMeasures]:
+    """Measures of ``subject`` under each seed (computed once per process)."""
+    return SUBJECTS[subject]()
+
+
+@pytest.fixture(scope="module")
+def poisson() -> list[MatchingMeasures]:
+    return results("VirtualSubject")
+
+
+def check_sensitivity(subject: str) -> tuple[bool, str]:
+    """M1: 0.83 <= a <= 1.11."""
+    v = [r.sensitivity for r in results(subject)]
+    return all(SENSITIVITY_LOW <= a <= SENSITIVITY_HIGH for a in v), spread(v)
+
+
+def check_deviation(subject: str) -> tuple[bool, str]:
+    """M2: relative responses within 0.10 of relative reinforcers in every condition."""
+    v = [c.deviation for r in results(subject) for c in r.conditions]
+    return max(v) <= MAX_DEVIATION, spread(v)
+
+
+CHECKS = {"M1": check_sensitivity, "M2": check_deviation}
+CHECK_LABELS = {
+    "M1": "sensitivity 0.83 ≤ a ≤ 1.11 (Baum, 1979)",
+    "M2": "|relative responses − relative reinforcers| ≤ 0.10 (Herrnstein, 1961)",
+}
+
+
+@pytest.mark.parametrize("subject", list(SUBJECTS))
+def test_matching_invariant_no_reinforcer_inside_the_changeover_delay(subject: str) -> None:
+    rows = results(subject)
     conditions = [c for r in rows for c in r.conditions]
     assert all(c.post_changeover_reinforcers > 0 for c in conditions)
     v = [c.shortest_post_changeover_s for c in conditions]
     assert min(v) >= COD_S, spread(v)
 
 
-def test_matching_sensitivity_within_published_range(melioration: list[MatchingMeasures]) -> None:
-    v = [r.sensitivity for r in melioration]
-    print(f"a {spread(v)}")
-    print(f"log b {spread([r.bias for r in melioration])}")
-    print(f"R^2 {spread([r.r_squared for r in melioration])}")
-    assert all(SENSITIVITY_LOW <= a <= SENSITIVITY_HIGH for a in v), spread(v)
+@pytest.mark.parametrize(("subject", "check"), law_cases(MATCHING, CHECKS))
+def test_matching_law(subject: str, check: str) -> None:
+    ok, detail = CHECKS[check](subject)
+    assert ok, detail
 
 
-def test_matching_relative_responses_track_relative_reinforcers(
-    melioration: list[MatchingMeasures],
-) -> None:
-    v = [c.deviation for r in melioration for c in r.conditions]
-    assert max(v) <= MAX_DEVIATION, spread(v)
+def test_matching_fit_is_reported() -> None:
+    # log b and R² are reported but not judged.
+    for subject in SUBJECTS:
+        rows = results(subject)
+        print(f"{subject} a {spread([r.sensitivity for r in rows])}")
+        print(f"{subject} log b {spread([r.bias for r in rows])}")
+        print(f"{subject} R^2 {spread([r.r_squared for r in rows])}")
 
 
 def test_matching_poisson_control_is_insensitive(poisson: list[MatchingMeasures]) -> None:

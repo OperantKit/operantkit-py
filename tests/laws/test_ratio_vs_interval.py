@@ -37,6 +37,13 @@ A constant-rate Poisson responder is the control: both members of a pair
 respond at the same rate whatever the schedule, so the ratio must stay
 within 0.9 to 1.1.
 
+Killeen's (1994) MPR (``MprSubject``) runs the same pairs: the VR member with
+ratio coupling and the published rat VR values, the yoked VI member with
+interval coupling and the published pigeon FI values (no population with
+both sets was found). It predicts V1; V2 and V3 are recorded as strict
+expected failures (``expectations.py``). The reinforcement rate assumed
+before the first reinforcer (one per minute) is this suite's choice.
+
 The pool size (70) and IRT variation (CV 0.2) were chosen from a sweep of the
 model's own parameters (pool 5–200, CV 0.1–0.5, 60–200 reinforcers); the
 thresholds above were not changed.
@@ -60,6 +67,7 @@ from __future__ import annotations
 import math
 from collections.abc import Callable
 from dataclasses import dataclass
+from functools import cache
 from statistics import median
 
 import pytest
@@ -73,7 +81,8 @@ from conftest import (
     run_session,
     spread,
 )
-from experiment_io.hw.backends.virtual import IrtCopyistSubject, VirtualSubject
+from expectations import RATIO_VS_INTERVAL, law_cases
+from experiment_io.hw.backends.virtual import IrtCopyistSubject, MprSubject, VirtualSubject
 
 VR_DSL = f'@algorithm("fleshler-hoffman", n=12, seed={FH_SEED})\nVR 25'
 YOKED_DSL = "yoked VI"
@@ -84,6 +93,7 @@ POOL_SIZE = 70
 CV = 0.2
 POISSON_RATE_HZ = 1.0
 YOKED_SEED_OFFSET = 100
+MPR_INITIAL_R = 1.0 / 60.0  # reinforcers/s before the first reinforcer (this suite's choice)
 
 RATE_RATIO_MIN = 1.0  # Catania et al. (1977): VR above VI
 RATE_RATIO_MEDIAN = 1.5  # three quarters of Catania et al.'s "about twice"
@@ -145,7 +155,10 @@ def run_pair(make_subject: Callable[[bool], object], vr_dsl: str = VR_DSL) -> Pa
     return Pair(vr, vi)
 
 
-def copyist(seed: int) -> Callable[[bool], object]:
+PairMaker = Callable[[int, int], Callable[[bool], object]]
+
+
+def copyist(seed: int, ratio: int = RATIO) -> Callable[[bool], object]:
     pool = IrtCopyistSubject(pool_size=POOL_SIZE, cv=CV, seed=seed).pool
 
     def make(yoked: bool) -> IrtCopyistSubject:
@@ -159,7 +172,7 @@ def copyist(seed: int) -> Callable[[bool], object]:
     return make
 
 
-def poisson(seed: int) -> Callable[[bool], object]:
+def poisson(seed: int, ratio: int = RATIO) -> Callable[[bool], object]:
     def make(yoked: bool) -> VirtualSubject:
         return VirtualSubject(
             rate_hz=POISSON_RATE_HZ, seed=seed + YOKED_SEED_OFFSET if yoked else seed
@@ -168,41 +181,62 @@ def poisson(seed: int) -> Callable[[bool], object]:
     return make
 
 
-@pytest.fixture(scope="module")
-def copyist_pairs() -> list[Pair]:
-    return [run_pair(copyist(seed)) for seed in SEEDS]
+def mpr(seed: int, ratio: int = RATIO) -> Callable[[bool], object]:
+    def make(yoked: bool) -> MprSubject:
+        if yoked:
+            return MprSubject(
+                coupling="interval", initial_r=MPR_INITIAL_R, seed=seed + YOKED_SEED_OFFSET
+            )
+        return MprSubject(coupling=("VR", ratio), initial_r=MPR_INITIAL_R, seed=seed)
+
+    return make
+
+
+SUBJECTS: dict[str, PairMaker] = {
+    "IrtCopyistSubject": copyist,
+    "MprSubject": mpr,
+    "VirtualSubject": poisson,
+}
+
+
+@cache
+def pairs(subject: str) -> list[Pair]:
+    """The VR 25 pairs of ``subject``, one per seed (computed once per process)."""
+    return [run_pair(SUBJECTS[subject](seed, RATIO)) for seed in SEEDS]
 
 
 @pytest.fixture(scope="module")
 def poisson_pairs() -> list[Pair]:
-    return [run_pair(poisson(seed)) for seed in SEEDS]
+    return pairs("VirtualSubject")
 
 
-def test_vr_rate_exceeds_yoked_vi_rate(copyist_pairs: list[Pair]) -> None:
-    ratios = [p.rate_ratio for p in copyist_pairs]
-    assert min(ratios) > RATE_RATIO_MIN, f"VR / yoked VI rate {spread(ratios)}"
-    assert median(ratios) >= RATE_RATIO_MEDIAN, f"VR / yoked VI rate {spread(ratios)}"
+def check_rate_ratio(subject: str) -> tuple[bool, str]:
+    """V1: VR rate over yoked VI rate."""
+    ratios = [p.rate_ratio for p in pairs(subject)]
+    ok = min(ratios) > RATE_RATIO_MIN and median(ratios) >= RATE_RATIO_MEDIAN
+    return ok, spread(ratios)
 
 
-def test_yoked_vi_stays_below_the_convergence_range(copyist_pairs: list[Pair]) -> None:
-    per_hour = [p.vi_reinforcers_per_hour for p in copyist_pairs]
-    assert max(per_hour) < MAX_REINFORCERS_PER_HOUR, f"yoked VI per hour {spread(per_hour)}"
+def check_reinforcement_range(subject: str) -> tuple[bool, str]:
+    """V2: the yoked VI earns fewer than 300 reinforcers per hour."""
+    per_hour = [p.vi_reinforcers_per_hour for p in pairs(subject)]
+    return max(per_hour) < MAX_REINFORCERS_PER_HOUR, spread(per_hour)
 
 
-@pytest.mark.parametrize("pairs_fixture", ["copyist_pairs", "poisson_pairs"])
-def test_procedure_invariants(pairs_fixture: str, request: pytest.FixtureRequest) -> None:
-    pairs: list[Pair] = request.getfixturevalue(pairs_fixture)
-    per_reinforcer = [p.vr_responses_per_reinforcer for p in pairs]
+@pytest.mark.parametrize("subject", list(SUBJECTS))
+def test_procedure_invariants(subject: str) -> None:
+    measured = pairs(subject)
+    per_reinforcer = [p.vr_responses_per_reinforcer for p in measured]
     mean_per_reinforcer = sum(per_reinforcer) / len(per_reinforcer)
     assert abs(mean_per_reinforcer - RATIO) <= RESPONSES_PER_REINFORCER_MARGIN, (
         f"VR responses per reinforcer {spread(per_reinforcer)}"
     )
-    equalized = [p.reinforcement_rate_ratio for p in pairs]
+    equalized = [p.reinforcement_rate_ratio for p in measured]
     low, high = EQUALIZED
     assert all(low <= e <= high for e in equalized), (
         f"yoked VI / VR reinforcement rate {spread(equalized)}"
     )
-    assert all(len(p.vi.reinforcer_starts) == REINFORCERS for p in pairs)
+    assert all(len(p.vi.reinforcer_starts) == REINFORCERS for p in measured)
 
 
 def test_poisson_control_shows_no_rate_difference(poisson_pairs: list[Pair]) -> None:
@@ -232,8 +266,11 @@ def sweep_dsl(ratio: int) -> str:
     return f'@algorithm("fleshler-hoffman", n=12, seed={FH_SEED})\nVR {ratio}'
 
 
-def run_sweep(make: Callable[[int], Callable[[bool], object]]) -> dict[int, list[Pair]]:
-    return {v: [run_pair(make(seed), sweep_dsl(v)) for seed in SEEDS] for v in SWEEP_RATIOS}
+@cache
+def sweep(subject: str) -> dict[int, list[Pair]]:
+    """The pairs of ``subject`` on VR 2 to VR 200 (computed once per process)."""
+    make = SUBJECTS[subject]
+    return {v: [run_pair(make(seed, v), sweep_dsl(v)) for seed in SEEDS] for v in SWEEP_RATIOS}
 
 
 def convergence_point(pairs: list[Pair]) -> float:
@@ -276,27 +313,10 @@ def corrected_over_uncorrected(pair: Pair) -> float:
     return corrected_rate(pair.vi) / response_rate(pair.vi)
 
 
-@pytest.fixture(scope="module")
-def copyist_sweep() -> dict[int, list[Pair]]:
-    return run_sweep(copyist)
+def check_convergence(subject: str) -> tuple[bool, str]:
+    """V3, a prediction: the yoked VI rate rises to the VR rate at 300 to 600 reinforcers per hour.
 
-
-@pytest.fixture(scope="module")
-def poisson_sweep() -> dict[int, list[Pair]]:
-    return run_sweep(poisson)
-
-
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "the copyist's VR / yoked VI rate ratio stays at 1.5-2.1 up to about "
-        "1,100 reinforcers per hour and never falls to 1.1 (Baum: 300-600)"
-    ),
-)
-def test_yoked_vi_rate_converges_in_baums_range(copyist_sweep: dict[int, list[Pair]]) -> None:
-    """Prediction: the yoked VI rate rises to the VR rate at 300 to 600 reinforcers per hour.
-
-    Not reproduced. Ten-seed median [min, max] per condition:
+    Not reproduced by the copyist. Ten-seed median [min, max] per condition:
 
     ====  ======================  ====================  ============
     VR    yoked VI reinf./hour    VR / yoked VI rate    corrected /
@@ -318,14 +338,30 @@ def test_yoked_vi_rate_converges_in_baums_range(copyist_sweep: dict[int, list[Pa
     over uncorrected rate stays near 1, so the subject has no pausing to
     correct for and the corrected range (Fig. 7) is the one to compare.
     """
-    points = convergence_points(copyist_sweep)
+    points = convergence_points(sweep(subject))
     low, high = CONVERGENCE_BAND
-    assert low <= median(points) <= high, f"convergence point {points}"
+    return low <= median(points) <= high, spread(points)
 
 
-def test_poisson_control_has_no_rate_difference_to_converge_from(
-    poisson_sweep: dict[int, list[Pair]],
-) -> None:
+CHECKS = {
+    "V1": check_rate_ratio,
+    "V2": check_reinforcement_range,
+    "V3": check_convergence,
+}
+CHECK_LABELS = {
+    "V1": "VR / yoked VI rate > 1 in every pair, median ≥ 1.5 (Catania et al., 1977)",
+    "V2": "yoked VI < 300 reinforcers/h (Baum, 1993)",
+    "V3": "rate ratio falls to 1.1 at 300–600 reinforcers/h (Baum, 1993)",
+}
+
+
+@pytest.mark.parametrize(("subject", "check"), law_cases(RATIO_VS_INTERVAL, CHECKS))
+def test_ratio_law(subject: str, check: str) -> None:
+    ok, detail = CHECKS[check](subject)
+    assert ok, detail
+
+
+def test_poisson_control_has_no_rate_difference_to_converge_from() -> None:
     """The control has no difference from the start, so it does not "converge" in the range.
 
     The 0.9-1.1 range is applied to the ten-seed median of each condition:
@@ -333,25 +369,26 @@ def test_poisson_control_has_no_rate_difference_to_converge_from(
     pairs fall outside it by sampling error (7 of 100 pairs).
     """
     low, high = CONTROL_RATIO
-    for v, pairs in poisson_sweep.items():
-        ratios = [p.rate_ratio for p in pairs]
+    control = sweep("VirtualSubject")
+    for v, condition in control.items():
+        ratios = [p.rate_ratio for p in condition]
         assert low <= median(ratios) <= high, f"VR {v}: control rate ratio {spread(ratios)}"
-    assert median(convergence_points(poisson_sweep)) < CONVERGENCE_BAND[0]
+    assert median(convergence_points(control)) < CONVERGENCE_BAND[0]
 
 
-@pytest.mark.parametrize("sweep_fixture", ["copyist_sweep", "poisson_sweep"])
-def test_sweep_procedure_invariants(sweep_fixture: str, request: pytest.FixtureRequest) -> None:
-    sweep: dict[int, list[Pair]] = request.getfixturevalue(sweep_fixture)
-    for v, pairs in sweep.items():
-        per_reinforcer = [p.vr_responses_per_reinforcer for p in pairs]
+@pytest.mark.parametrize("subject", list(SUBJECTS))
+def test_sweep_procedure_invariants(subject: str) -> None:
+    for v, condition in sweep(subject).items():
+        per_reinforcer = [p.vr_responses_per_reinforcer for p in condition]
         mean_per_reinforcer = sum(per_reinforcer) / len(per_reinforcer)
         assert abs(mean_per_reinforcer - v) <= SWEEP_RESPONSES_PER_REINFORCER_MARGIN * v, (
             f"VR {v}: responses per reinforcer {spread(per_reinforcer)}"
         )
-        assert all(len(p.vi.reinforcer_starts) == REINFORCERS for p in pairs)
+        assert all(len(p.vi.reinforcer_starts) == REINFORCERS for p in condition)
 
 
-def test_sweep_reproduces_the_vr_25_pairs(
-    copyist_sweep: dict[int, list[Pair]], copyist_pairs: list[Pair]
-) -> None:
-    assert [p.rate_ratio for p in copyist_sweep[RATIO]] == [p.rate_ratio for p in copyist_pairs]
+@pytest.mark.parametrize("subject", list(SUBJECTS))
+def test_sweep_reproduces_the_vr_25_pairs(subject: str) -> None:
+    assert [p.rate_ratio for p in sweep(subject)[RATIO]] == [
+        p.rate_ratio for p in pairs(subject)
+    ]
