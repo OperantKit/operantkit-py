@@ -53,9 +53,6 @@ With the fixed ``FH_SEED`` every subject seed meets the same RI intervals
 offset of about +1.4%; the formula's standard error, which treats the
 intervals as random, is the right size for it.
 
-Under the time limit the runner records the first response past the limit
-(not reinforced) before the session ends; the DRL checks drop it.
-
 Also printed, not judged: the coefficient of variation of the
 inter-reinforcement times for VI and RI. With Poisson responding both have
 the same mean, but RI intervals vary more.
@@ -259,12 +256,8 @@ def test_drl_reinforces_irts_at_least_the_requirement() -> None:
                 reinforcer_duration_s=0.0,
                 exit_condition=TimeLimitExit(limit=length),
             )
-            # The runner records the first response past the time limit before
-            # the limit ends the session; it is never reinforced. Judge only the
-            # responses inside the session.
-            late = [t for t in rec.responses if t > length]
-            assert len(late) <= 1 and all(t not in rec.reinforcer_starts for t in late), (b, s)
-            resp = [t for t in rec.responses if t <= length]
+            resp = rec.responses
+            assert resp[-1] < length, (b, s)
             expected = [resp[0]] + [t for p, t in zip(resp, resp[1:]) if t - p >= DRL_T]
             assert rec.reinforcer_starts == pytest.approx(expected, abs=1e-9), (b, s)
             reinforced += len(rec.reinforcer_starts) - 1
