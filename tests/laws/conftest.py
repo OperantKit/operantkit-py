@@ -24,7 +24,7 @@ from contingency.interfaces import Schedule
 from contingency_dsl import parse
 from contingency_dsl.annotations.temporal.extension import TemporalExtension
 from contingency_dsl.extensions import ExtensionRegistry
-from experiment_core import ReinforcementCountExit
+from experiment_core import ExitCondition, ReinforcementCountExit
 from experiment_core.events import (
     ReinforcerEndEvent,
     ReinforcerStartEvent,
@@ -79,17 +79,24 @@ def run_session(
     dsl: str,
     subject: object,
     *,
-    reinforcers: int,
+    reinforcers: int | None = None,
     reinforcer_duration_s: float,
     operanda: int = 1,
     schedule: Schedule | None = None,
+    exit_condition: ExitCondition | None = None,
 ) -> Record:
     """Run one session of ``dsl`` until ``reinforcers`` reinforcers and record it.
 
+    ``exit_condition`` ends the session another way (for example a
+    ``TimeLimitExit``); give either it or ``reinforcers``, not both.
     ``schedule`` replaces the schedule built from ``dsl`` (used for the
     yoked VI, whose intervals come from another session); ``dsl`` is then
     only recorded in the session metadata.
     """
+    if (exit_condition is None) == (reinforcers is None):
+        raise ValueError("give exactly one of reinforcers and exit_condition")
+    if exit_condition is None:
+        exit_condition = ReinforcementCountExit(count=reinforcers)
     if schedule is None:
         schedule = from_dsl(parse(dsl, extensions=_ANNOTATIONS))
     clock = ManualClock()
@@ -102,7 +109,7 @@ def run_session(
         SessionConfig(
             name="law",
             schedule=schedule,
-            exit_condition=ReinforcementCountExit(count=reinforcers),
+            exit_condition=exit_condition,
             metadata={"dsl": dsl},
         ),
         sink=record,
