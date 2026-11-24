@@ -28,7 +28,7 @@
 | `IrtCopyistSubject` | 対象外 | — | — | — | — |
 | `MatchingSubject` | 対象外 | — | — | — | — |
 | `RaCSubject` | 対象外 | — | — | — | — |
-| `MprSubject` | 予測する | F1: breakpoint 0.67 ± 0.15 (Schneider, 1969) | xfail | 落ちる | 0.506 [0.500, 0.530] |
+| `MprSubject` | 予測する | F1: breakpoint 0.67 ± 0.15 (Schneider, 1969) | xfail | 落ちる | 0.508 [0.500, 0.530] |
 | `MprSubject` | 予測する | F2: share of rising segment steps ≥ 0.74 (Dews, 1978) | xfail | 落ちる | 0.488 [0.438, 0.544] |
 | `MprSubject` | 予測する | F2aux: 5th / 1st segment rate ≥ 2 (Dews, 1978) | xfail | 落ちる | 1.123 [1.059, 1.926] |
 | `MprSubject` | 予測する | F3: index of curvature ≥ 0.56 (Fry et al., 1960) | xfail | 落ちる | 0.497 [0.481, 0.511] |
