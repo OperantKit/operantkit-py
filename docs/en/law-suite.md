@@ -103,5 +103,5 @@ Reasons:
 - `IrtCopyistSubject` (out of scope): single-operandum subject; the law needs two operanda
 - `MatchingSubject` (predicts): melioration: shifts responses toward the key with the higher local reinforcement rate (Herrnstein & Vaughan, 1980)
 - `RaCSubject` (predicts): B_T / B_Alt = b V_T / V_Alt with b = 1: sensitivity 1 when the values equal the arranged rates (Shahan & Craig, 2017; Shahan, Browning, & Nall, 2020)
-  - M1 (xfail): undermatches: sensitivity 0.84 [0.73, 0.88] with ten sessions per condition and 0.85 [0.82, 0.89] with thirty. A likely cause, not verified: the values weight every session since the option was first reinforced, so the earlier conditions stay in them
+  - M1 (xfail): undermatches: sensitivity 0.84 [0.73, 0.88] with ten sessions per condition and 0.85 [0.82, 0.89] with thirty. Cause: the values weight every session since the option was first reinforced, so the earlier conditions stay in them. The value equations alone, given the arranged rates in the same order, give 0.85 and 0.89; without the changeover delay a new subject for each condition gives 1.02 [0.97, 1.04]. With the changeover delay a new subject for each condition cannot be measured: on VI 108-s : VI 540-s it stops earning reinforcers on the lean key
 - `MprSubject` (out of scope): single-operandum subject; the law needs two operanda
